@@ -1,0 +1,21 @@
+---
+title: "Spotify_analysis"
+output: html_document
+date: "2026-05-06"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Importing libraries
+
+```{r library, include=FALSE}
+
+```
+
+## Import required files
+
+```{r}
+df <- read.csv('C:/data/spotify_wrapped_2025_top50_songs.csv')
+```
