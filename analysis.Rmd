@@ -234,7 +234,31 @@ for (i in genders){
                      binwidth = 300)+ # There is a new bin every five minutes
       scale_x_time(labels = scales::label_time("%H:%M:%S"))+
       labs(
-        title = "Distribution of female HBF Run 12km results",
+        title = "Distribution of HBF Run 12km results",
+        subtitle = paste(i, j),
+        caption = 'Data source: BlueChip results',
+        x = 'Net time',
+        y = 'Number of results')+
+      hbf_theme()
+    print(p)
+  }
+}
+
+```
+
+Boxplot for categories
+```{r}
+genders <- unique(df$Gender)
+categories <- unique(df$Category)
+for (i in genders){
+  for (j in categories){
+    p <- df%>%
+    filter(Gender == i & Category == j)%>%
+    ggplot(aes(y=Net_Time_s))+
+      geom_boxplot()+
+      scale_y_time(labels = scales::label_time("%H:%M:%S"))+
+      labs(
+        title = "Distribution of HBF Run 12km results",
         subtitle = paste(i, j),
         caption = 'Data source: BlueChip results',
         x = 'Net time',
@@ -253,12 +277,13 @@ Boxplot
 df%>%
   ggplot(aes(x=Wave_Num, y=Net_Time_s, fill = Wave_Num))+
   geom_violin()+
+  scale_y_time(labels = scales::label_time("%H:%M:%S"))+
       labs(
       title = "Distribution of HBF Run 12km results by wave",
       subtitle = 'Results from the 2026 HBF Run for a Reason separated by starting wave',
       caption = 'Data source: BlueChip results',
       x = 'Wave number',
-      y = 'Number of results')+
+      y = 'Net time')+
   hbf_theme()
 ```
 ```{r}
@@ -280,10 +305,22 @@ df%>%
         y = 'Number of runners')+
       hbf_theme()
 ```
+Summary stats - overall
+```{r}
+df%>%
+  summarise(Count = n(),
+            Mean = strftime(as_hms(mean(Net_Time_s)), "%H:%M:%S"),
+            Median = strftime(as_hms(median(Net_Time_s)), "%H:%M:%S"),
+            Min = strftime(as_hms(min(Net_Time_s)), "%H:%M:%S"),
+            Max = strftime(as_hms(max(Net_Time_s)), "%H:%M:%S"),
+            `25%` = strftime(as_hms(quantile(Net_Time_s)[2]), "%H:%M:%S"),
+            `75%` = strftime(as_hms(quantile(Net_Time_s)[4]), "%H:%M:%S"),
+            `SD` = strftime(as_hms(sd(Net_Time_s)), "%H:%M:%S"))
+```
 
 
 
-Summary stats
+Summary stats - grouped
 ```{r}
 df%>%
   group_by(Gender, Category)%>%
@@ -300,3 +337,6 @@ df%>%
 For summary outputs, it would be helpful to differentiate 'Walking' from 'Running'
 
 Can't separate by waves given there are walkers and runners in the incorrect waves. 
+
+Gaussian Mixture Model (GMM)
+(theoreticially could use k-means however, this assigns binary yes/no clusters. In the case of our example, whether a participant walked or ran isn't always binary as they can walk and run for a segment of the race. )
