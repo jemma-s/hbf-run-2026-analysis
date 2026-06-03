@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Installing packages
 ```{r}
-install.packages('ggridges')
+install.packages('mclust')
 ```
 
 ## Importing libraries
@@ -25,6 +25,7 @@ library(dplyr)
 library(hms)
 library(hrbrthemes)
 library(ggridges)
+library(mclust)
 ```
 
 ## Scraping the data from the results website
@@ -340,3 +341,20 @@ Can't separate by waves given there are walkers and runners in the incorrect wav
 
 Gaussian Mixture Model (GMM)
 (theoreticially could use k-means however, this assigns binary yes/no clusters. In the case of our example, whether a participant walked or ran isn't always binary as they can walk and run for a segment of the race. )
+
+```{r}
+gmm <- Mclust(df$Net_Time, G = 2) #G = 2 because we have runners and walkers (i.e. two groups)
+gmm_all <- Mclust(df$Net_Time) #Wanting to compare the number of components
+summary(gmm)
+```
+
+```{r}
+plot(gmm, what = 'BIC')
+```
+
+
+```{r}
+plot(gmm, what = 'density')
+```
+
+
