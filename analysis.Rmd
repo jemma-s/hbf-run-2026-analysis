@@ -345,16 +345,135 @@ Gaussian Mixture Model (GMM)
 ```{r}
 gmm <- Mclust(df$Net_Time, G = 2) #G = 2 because we have runners and walkers (i.e. two groups)
 gmm_all <- Mclust(df$Net_Time) #Wanting to compare the number of components
-summary(gmm)
+gmm_all_log <- Mclust(log(df$Net_Time_s)) #Wanting to compare the number of components
+gmm_two_log <- Mclust(log(df$Net_Time_s), G = 2) #Wanting to compare the number of components
+summary(gmm_all_log)
+```
+```{r}
+plot(gmm_all, what = 'BIC')
+```
+
+
+```{r}
+plot(gmm_all_log, what = 'BIC')
+```
+E denotes if all 'groups' have hte same spread whereas V denotes if all 'groups' have different spreads (which is the case for us)
+Looking at the model, two is the ideal quantity of groups. 
+
+```{r}
+plot(gmm_all_log, what = 'density')
+```
+```{r}
+summary(gmm_all_log$uncertainty)
 ```
 
 ```{r}
-plot(gmm, what = 'BIC')
+summary(gmm$uncertainty)
+```
+
+```{r}
+summary(gmm_two_log$uncertainty)
+```
+We are looking for the LOWER uncertainty value. Given that uncertainty is 1-max(P(cluster))
+
+In the logged median, a median of 0.01 means that most observations are classified with ~99% probability. However, there are some which are struggling to be scaled given that the max is relatively high (these could be runners who also walk sometimes)
+
+```{r}
+table(gmm_all_log$classification)
+```
+
+Clusters are not evenly split but let's see what this actually means. 
+```{r}
+df$cluster <- gmm_all_log$classification
+```
+
+```{r}
+df%>%
+  ggplot(aes(x = Net_Time_s,
+         fill = factor(cluster)))+
+    geom_histogram(
+                   color = 'white',
+                   binwidth = 300)+ # There is a new bin every five minutes
+    scale_x_time(labels = scales::label_time("%H:%M:%S"))+
+    labs(
+      title = "Distribution of HBF Run 12km results - Cluster version 1",
+      subtitle = 'Using a log clustering with a cut off of two clusters. Currently uses hard cut off',
+      caption = 'Data source: BlueChip results',
+      x = 'Net time',
+      y = 'Number of results')+
+    hbf_theme()
+```
+
+** Square roots are usually used for count data, and this is not the case for this dataset. 
+
+Let's look at some summary statistics from these clusters
+
+```{r}
+df%>%
+  group_by(cluster)%>%
+  summarise(Count = n(),
+            Mean = strftime(as_hms(mean(Net_Time_s)), "%H:%M:%S"),
+            Median = strftime(as_hms(median(Net_Time_s)), "%H:%M:%S"),
+            Min = strftime(as_hms(min(Net_Time_s)), "%H:%M:%S"),
+            Max = strftime(as_hms(max(Net_Time_s)), "%H:%M:%S"),
+            `25%` = strftime(as_hms(quantile(Net_Time_s)[2]), "%H:%M:%S"),
+            `75%` = strftime(as_hms(quantile(Net_Time_s)[4]), "%H:%M:%S"),
+            `SD` = strftime(as_hms(sd(Net_Time_s)), "%H:%M:%S"))
+```
+
+Summary stats by wave and cluster
+```{r}
+df%>%
+  group_by(cluster, Wave_Num)%>%
+  summarise(Count = n(),
+            Mean = strftime(as_hms(mean(Net_Time_s)), "%H:%M:%S"),
+            Median = strftime(as_hms(median(Net_Time_s)), "%H:%M:%S"),
+            Min = strftime(as_hms(min(Net_Time_s)), "%H:%M:%S"),
+            Max = strftime(as_hms(max(Net_Time_s)), "%H:%M:%S"),
+            `25%` = strftime(as_hms(quantile(Net_Time_s)[2]), "%H:%M:%S"),
+            `75%` = strftime(as_hms(quantile(Net_Time_s)[4]), "%H:%M:%S"),
+            `SD` = strftime(as_hms(sd(Net_Time_s)), "%H:%M:%S"))
 ```
 
 
 ```{r}
-plot(gmm, what = 'density')
+df%>%
+  ggplot(aes(x=Wave_Num, y=Net_Time_s, fill = factor(cluster)))+
+  geom_boxplot()+
+  scale_y_time(labels = scales::label_time("%H:%M:%S"))+
+      labs(
+      title = "Distribution of HBF Run 12km results by wave",
+      subtitle = 'Results from the 2026 HBF Run for a Reason separated by starting wave',
+      caption = 'Data source: BlueChip results',
+      x = 'Wave number',
+      y = 'Net time')+
+  hbf_theme()
 ```
 
+```{r}
+df%>%
+  ggplot(aes(x=Gender, y=Net_Time_s, fill = factor(cluster)))+
+  geom_boxplot()+
+  scale_y_time(labels = scales::label_time("%H:%M:%S"))+
+      labs(
+      title = "Distribution of HBF Run 12km results by wave",
+      subtitle = 'Results from the 2026 HBF Run for a Reason separated by starting wave',
+      caption = 'Data source: BlueChip results',
+      x = 'Wave number',
+      y = 'Net time')+
+  hbf_theme()
+```
+
+```{r}
+df%>%
+  group_by(cluster, Gender)%>%
+  summarise(Count = n(),
+            Mean = strftime(as_hms(mean(Net_Time_s)), "%H:%M:%S"),
+            Median = strftime(as_hms(median(Net_Time_s)), "%H:%M:%S"),
+            Min = strftime(as_hms(min(Net_Time_s)), "%H:%M:%S"),
+            Max = strftime(as_hms(max(Net_Time_s)), "%H:%M:%S"),
+            `25%` = strftime(as_hms(quantile(Net_Time_s)[2]), "%H:%M:%S"),
+            `75%` = strftime(as_hms(quantile(Net_Time_s)[4]), "%H:%M:%S"),
+            `SD` = strftime(as_hms(sd(Net_Time_s)), "%H:%M:%S"))
+```
 
