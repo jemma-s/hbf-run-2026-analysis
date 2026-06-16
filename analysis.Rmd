@@ -10,29 +10,35 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Installing packages
 ```{r}
-install.packages('mclust')
+packages <- c('mclust',
+              'readr',
+              'RCurl',
+              'here',
+              'tidyverse',
+              'rvest',
+              'dplyr',
+              'hms',
+              'hrbrthemes',
+              'mclust',
+              'knitr')
+# Only installs packages if required
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)){
+  install.packages(packages[!installed_packages])
+}
+# Importing packages
+invisible(lapply(packages, library, character.only = TRUE))
 ```
 
-## Importing libraries
-
-```{r library, include=FALSE}
-library(readr)
-library(RCurl)
-library(here) # To reference files inside R Project
-library(tidyverse)
-library(rvest)
-library(dplyr)
-library(hms)
-library(hrbrthemes)
-library(ggridges)
-library(mclust)
-```
 
 ## Scraping the data from the results website
 
 ```{r}
 pages <- list()
+# Base URL -> There are many pages as denoted at the end of the URL
 url_pre <- "https://bluechipresults.com.au/results.aspx?CId=11&RId=1975&EId=1&dt=0&PageNo="
+
+# Looping through all pages, creating the URLs and then scraping the data table
 for (i in 1:360){
   url <- paste(url_pre, i, sep = "")
   print(url)
@@ -42,14 +48,19 @@ for (i in 1:360){
   
 }
 
+# Merging all page data into one df
 df <- bind_rows(pages)
 ```
 
-Saving df for later usage
+Saving initial CSV as hbf_run_results_raw_12_2026
 ```{r}
-write.csv(df, file = here("data", "raw", "hbf_run_results_raw_12_2025.csv"), row.names = FALSE)
+write.csv(df, file = here("data", "raw", "hbf_run_results_raw_12_2026.csv"), row.names = FALSE)
 ```
 
+Run to obtain df from data folder
+```{r}
+df <- read.csv(file = here("data", "raw", "hbf_run_results_raw_12_2026.csv"))
+```
 
 ## Data cleaning
 ### Remove unnecessary columns
@@ -59,7 +70,8 @@ df <- df%>%
   select(-c(Fav, Share, `Name...6`, `Name...7`, `Time(Net Time)`, `Cat Pos(Gen Pos)` ))
 ```
 
-Renaming some columns
+Renaming some columns -> Removing spaces
+Making place, pace and position more meaningful for certain intervals (i.e. 8.6 denotes that was the pace taken at 8.6km).
 ```{r}
 df <- df%>%
   rename(Net_Pos = `Net Pos`,
@@ -70,33 +82,32 @@ df <- df%>%
          Time_Behind_Cat = `Time Behind Cat`,
          Gen_Pos = `Gen Pos`,
          Net_Gen_Pos = `Net Gender Pos`,
-         Pace = `Pace...19`,
-         Pace_8.6 = `Pace...22`,
-         Pos_8.6 = `O/Pos...23`,
-         Cat_Pos_8.6 = `C/Pos...24`,
-         Gen_Pos_8.6 = `G/Pos...25`,
-         Pace_8.7 = `Pace...27`,
-         Pos_8.7 = `O/Pos...28`,
-         Cat_Pos_8.7 = `C/Pos...29`,
-         Gen_Pos_8.7 = `G/Pos...30`,
-         Pace_9.9 = `Pace...32`,
-         Pos_9.9 = `O/Pos...33`,
-         Cat_Pos_9.9 = `C/Pos...34`,
-         Gen_Pos_9.9 = `G/Pos...35`,
-         Pace_12 = `Pace...37`,
-         Pos_12 = `O/Pos...38`,
-         Cat_Pos_12 = `C/Pos...39`,
-         Gen_Pos_12 = `G/Pos...40`,)
+         Pace = `Pace...21`,
+         Pace_8.6 = `Pace...24`,
+         Pos_8.6 = `O/Pos...25`,
+         Cat_Pos_8.6 = `C/Pos...26`,
+         Gen_Pos_8.6 = `G/Pos...27`,
+         Pace_8.7 = `Pace...29`,
+         Pos_8.7 = `O/Pos...30`,
+         Cat_Pos_8.7 = `C/Pos...31`,
+         Gen_Pos_8.7 = `G/Pos...32`,
+         Pace_9.9 = `Pace...34`,
+         Pos_9.9 = `O/Pos...35`,
+         Cat_Pos_9.9 = `C/Pos...36`,
+         Gen_Pos_9.9 = `G/Pos...37`,
+         Pace_12 = `Pace...39`,
+         Pos_12 = `O/Pos...40`,
+         Cat_Pos_12 = `C/Pos...41`,
+         Gen_Pos_12 = `G/Pos...42`,)
 ```
 
-
-Needs to remove rows with null times
+In our analysis, we're only looking at those who completed the race. In this case, we are removing those who don't have a finishing position. These are runners who didn't start/finish the race.
 ```{r}
 df <- df%>%
   filter(!is.na(Pos))
 ```
 
-Need to convert all columns into the correct type
+Converting columns into the correct datatypes.
 ```{r}
 df <- df%>%
   mutate(
@@ -112,34 +123,41 @@ df <- df%>%
     SpecSprint_8.7km_s = as.numeric(SpecSprint_8.7km),
     SpecStart_8.6km = na_if(`SpecStart 8.6km`, "") |> as_hms(),
     SpecStart_8.6km_s = as.numeric(SpecStart_8.6km),
+    Gender = as.factor(Gender),
+    Category = as.factor(Category),
+    Wave = as.factor(Wave)
   )
 ```
 
-Making a new variable for wave
+Making a new variable for wave number, selects exclusively the wave number (i.e. Green Wave (A) becomes A).
 ```{r}
 df <- df%>%
-  mutate(Wave_Num = str_sub(Wave, -2, -2))
+  mutate(Wave_Num = factor(str_sub(Wave, -2, -2)))
 ```
 
-
-
-
-Creating net time bins to group those in the nearest 10 seconds
-
-plot theme
+Saving df in the data folder for later use
 ```{r}
+write.csv(df, file = here("data", "raw", "hbf_run_results_modified_12_2026.csv"), row.names = FALSE)
+```
+
+Run to obtain df from data folder
+```{r}
+df <- read.csv(file = here("data", "raw", "hbf_run_results_modified_12_2026.csv"))
+```
+
+# Plot theme
+Creating a theme for consistent graphs. 
+```{r}
+# HBF colours -> for consistent plotting
 hbf_col1 <- "#003a5d"
 hbf_col2 <- "#00B0BA"
 hbf_col3 <- "91D3D0"
+
 hbf_theme <- function(){   #Title
   # Set base theme and font family ---------------------------------------------
   theme_minimal(
     #base_family = "Libre Franklin"
   ) +
-    # Overwrite base theme defaults --------------------------------------------
-  # Primary colour (dark blue): #003a5d
-  # Sub colour (medium blue): #2596be
-  # Sub colour (light blue/green): #91d3d0
     theme(
       # Text elements ----------------------------------------------------------
       plot.title = element_text(
@@ -186,7 +204,114 @@ hbf_theme <- function(){   #Title
   
 ```
 
+# Exploratory analysis
+Investigating what our df includes. 
 
+```{r}
+str(df)
+```
+Things to note: there are 4 gender types and 13 category types
+
+### Investigating count of gender type
+
+```{r}
+ggplot(df, aes(x = Gender))+
+  geom_bar(fill = hbf_col2,
+                 color = 'white')+ 
+  labs(
+    title = "Number of finishers by gender - HBF Run 12km",
+    subtitle = 'Results from the 2026 HBF Run for a Reason',
+    caption = 'Data source: BlueChip results',
+    x = 'Gender',
+    y = 'Number of finishers')+
+  geom_text(
+    aes(label = after_stat(count)),
+    stat = "count",
+    vjust = -0.1,
+    color = 'black'
+  )+
+  hbf_theme()
+```
+There were 15,448 participants. The majority of runners are female, with 41.5% of runners being male and 33 being Nonbinary and Undisclosed.
+
+
+### Investigating count of category type. 
+
+Getting category types in the correct order
+
+```{r}
+unique(df$Category)
+```
+Ordering categories for graphing
+```{r}
+cat_order = c("3 & Under", 
+              "12 & Under", 
+              "13-15", 
+              "16-19", 
+              "20-29", 
+              "30-39", 
+              "40-49", 
+              "50-59", 
+              "60-69", 
+              "70-79", 
+              "80 & Over", 
+              "Wheelchair", 
+              "Unknown")
+
+df$Category <- factor(df$Category,
+                      levels = cat_order)
+```
+
+
+
+```{r}
+  
+ggplot(df, aes(x = Category))+
+  geom_bar(aes(x = factor(Category, cat_order)),
+    fill = hbf_col3,
+                 color = 'white')+ 
+  labs(
+    title = "Number of finishers by category - HBF Run 12km",
+    subtitle = 'Results from the 2026 HBF Run for a Reason',
+    caption = 'Data source: BlueChip results',
+    x = 'Gender',
+    y = 'Number of finishers')+
+  scale_x_discrete(
+    labels = function(x) str_wrap(x, width=5)
+  )+
+  geom_text(
+    aes(label = after_stat(count)),
+    stat = "count",
+    vjust = -0.1,
+    color = 'black'
+  )+
+  hbf_theme()
+```
+```{r}
+  
+ggplot(df, aes(y = Category))+
+  geom_bar(aes(y = factor(Category, rev(cat_order))),
+    fill = hbf_col3,
+                 color = 'white')+ 
+  labs(
+    title = "Number of finishers by category - HBF Run 12km",
+    subtitle = 'Results from the 2026 HBF Run for a Reason',
+    caption = 'Data source: BlueChip results',
+    x = 'Gender',
+    y = 'Number of finishers')+
+  geom_text(
+    aes(label = after_stat(count)),
+    hjust = -0.1,
+    stat = "count",
+    color = 'black'
+  )+
+  hbf_theme()
+```
+The vast majority of finishers are in the 20-29 age bracket. There are some categories which have a small amount of finishers, notably 3 & Under, 80 & Over, Wheelchair, Unknown and less prominently, 70-79. 
+
+We'll keep these categories in for now but will note the small quantity of results associated with them. Specifically, 3 & Under where one could infer that parents would help them complete the race. 
+
+### Plotting results against finisher times
 
 Simple plot of all results
 ```{r}
@@ -203,7 +328,9 @@ ggplot(df, aes(x = Net_Time_s))+
     y = 'Number of results')+
   hbf_theme()
 ```
+Initial suggestions could lead to bimodallity of the data. 
 
+Creating a similar graph, just for female finishers
 ```{r}
 df%>%
   filter(Gender == "Female")%>%
@@ -221,8 +348,48 @@ df%>%
     hbf_theme()
 ```
 
-
+Creating the graphs above but faceted by gender. 
 ```{r}
+df%>%
+  ggplot(aes(x = Net_Time_s))+
+    geom_histogram(fill = hbf_col2,
+                   color = 'white',
+                   binwidth = 300)+ # There is a new bin every five minutes
+  facet_wrap(~Gender, scales = "free_y")+
+    scale_x_time(labels = scales::label_time("%H:%M:%S"))+
+    labs(
+      title = "Distribution of HBF Run 12km results by gender",
+      subtitle = 'Results from the 2026 HBF Run for a Reason shown in 5 minute intervals',
+      caption = 'Data source: BlueChip results',
+      x = 'Net time',
+      y = 'Number of results')+
+    hbf_theme()
+```
+This shows that males trend to have a faster finisher time than females. They also have a less severe bimodality. It's unclear if this is due to less finishers walking throughout the race or a baseline faster run time. 
+
+Nonbinary and Undisclosed finisher times vary greatly due to the small number of results. 
+
+Creating the graphs above but faceted by category 
+```{r}
+df%>%
+  ggplot(aes(x = Net_Time_s))+
+    geom_histogram(fill = hbf_col2,
+                   color = 'white',
+                   binwidth = 300)+ # There is a new bin every five minutes
+  facet_wrap(~Category, scales = "free_y")+
+    scale_x_time(labels = scales::label_time("%H:%M:%S"))+
+    labs(
+      title = "Distribution of HBF Run 12km results by category",
+      subtitle = 'Results from the 2026 HBF Run for a Reason shown in 5 minute intervals',
+      caption = 'Data source: BlueChip results',
+      x = 'Net time',
+      y = 'Number of results')+
+    hbf_theme()
+```
+Results vary greatly depending on age category. 
+
+```{r eval=FALSE, include=FALSE}
+# Loop to create separate bar graphs by category and gender (not used)
 genders <- unique(df$Gender)
 categories <- unique(df$Category)
 for (i in genders){
@@ -247,33 +414,9 @@ for (i in genders){
 
 ```
 
-Boxplot for categories
-```{r}
-genders <- unique(df$Gender)
-categories <- unique(df$Category)
-for (i in genders){
-  for (j in categories){
-    p <- df%>%
-    filter(Gender == i & Category == j)%>%
-    ggplot(aes(y=Net_Time_s))+
-      geom_boxplot()+
-      scale_y_time(labels = scales::label_time("%H:%M:%S"))+
-      labs(
-        title = "Distribution of HBF Run 12km results",
-        subtitle = paste(i, j),
-        caption = 'Data source: BlueChip results',
-        x = 'Net time',
-        y = 'Number of results')+
-      hbf_theme()
-    print(p)
-  }
-}
+### Plotting results against nominated waves
 
-```
-
-
-
-Boxplot
+Violin plot of finisher times based on nominated waves
 ```{r}
 df%>%
   ggplot(aes(x=Wave_Num, y=Net_Time_s, fill = Wave_Num))+
@@ -283,15 +426,22 @@ df%>%
       title = "Distribution of HBF Run 12km results by wave",
       subtitle = 'Results from the 2026 HBF Run for a Reason separated by starting wave',
       caption = 'Data source: BlueChip results',
+      fill = 'Wave number',
       x = 'Wave number',
       y = 'Net time')+
   hbf_theme()
 ```
+This shows that there is a large variety of finisher times, no matter what wave was selected. Wave A and B have a large concentration around the recommended time. Wave C appears to have more consistent times recorded and waves D and E have different distributions but Wave D has a larger concerntration at a slower time which is unexpected given it's not the slowest wave. 
+
+### Plotting results against gender and category
+
+Filtering out genders and categories with small count numbers
+
 ```{r}
 df%>%
   filter(Gender != "Undisclosed" & Gender != "Nonbinary" & Category != "Wheelchair" & Category != 'Unknown' & Category != '3 & Under')%>%
   group_by(Gender, Category)%>%
-  summarise(Count = n())%>%
+  summarise(Count = n(), .groups = "drop_last")%>%
   ggplot(aes(x = Category,
              y = Count,
              fill = Gender))+
@@ -306,7 +456,10 @@ df%>%
         y = 'Number of runners')+
       hbf_theme()
 ```
-Summary stats - overall
+
+### Summary statistics
+
+Summary statistics - overall
 ```{r}
 df%>%
   summarise(Count = n(),
@@ -321,11 +474,12 @@ df%>%
 
 
 
-Summary stats - grouped
+Summary statistics - separated by gender and category
 ```{r}
 df%>%
   group_by(Gender, Category)%>%
   summarise(Count = n(),
+            .groups = "drop_last",
             Mean = strftime(as_hms(mean(Net_Time_s)), "%H:%M:%S"),
             Median = strftime(as_hms(median(Net_Time_s)), "%H:%M:%S"),
             Min = strftime(as_hms(min(Net_Time_s)), "%H:%M:%S"),
@@ -334,6 +488,8 @@ df%>%
             `75%` = strftime(as_hms(quantile(Net_Time_s)[4]), "%H:%M:%S"),
             `SD` = strftime(as_hms(sd(Net_Time_s)), "%H:%M:%S"))
 ```
+
+## Gaussian Mixture Modelling 
 
 For summary outputs, it would be helpful to differentiate 'Walking' from 'Running'
 
@@ -349,16 +505,17 @@ gmm_all_log <- Mclust(log(df$Net_Time_s)) #Wanting to compare the number of comp
 gmm_two_log <- Mclust(log(df$Net_Time_s), G = 2) #Wanting to compare the number of components
 summary(gmm_all_log)
 ```
+
+Investigating both gmm models created, using the log of net time and regular net time. 
 ```{r}
 plot(gmm_all, what = 'BIC')
-```
-
-
-```{r}
 plot(gmm_all_log, what = 'BIC')
 ```
-E denotes if all 'groups' have hte same spread whereas V denotes if all 'groups' have different spreads (which is the case for us)
-Looking at the model, two is the ideal quantity of groups. 
+To determine the preferred model, BIC would be minimised. 
+E denotes if all 'groups' have the same spread whereas V denotes if all 'groups' have different spreads (which is the case for us). 
+
+The log model is a much better fit, given that BIC is minimised for all number of components. 
+Furthermore, as suspected, two appears to be the correct number of components. 
 
 ```{r}
 plot(gmm_all_log, what = 'density')
@@ -367,14 +524,7 @@ plot(gmm_all_log, what = 'density')
 summary(gmm_all_log$uncertainty)
 ```
 
-```{r}
-summary(gmm$uncertainty)
-```
-
-```{r}
-summary(gmm_two_log$uncertainty)
-```
-We are looking for the LOWER uncertainty value. Given that uncertainty is 1-max(P(cluster))
+We are looking for the LOWEST uncertainty value. Given that uncertainty is 1-max(P(cluster))
 
 In the logged median, a median of 0.01 means that most observations are classified with ~99% probability. However, there are some which are struggling to be scaled given that the max is relatively high (these could be runners who also walk sometimes)
 
@@ -396,15 +546,14 @@ df%>%
                    binwidth = 300)+ # There is a new bin every five minutes
     scale_x_time(labels = scales::label_time("%H:%M:%S"))+
     labs(
-      title = "Distribution of HBF Run 12km results - Cluster version 1",
+      title = "Distribution of HBF Run 12km results - Separated into two groups",
       subtitle = 'Using a log clustering with a cut off of two clusters. Currently uses hard cut off',
       caption = 'Data source: BlueChip results',
+      fill = "Cluster",
       x = 'Net time',
       y = 'Number of results')+
     hbf_theme()
 ```
-
-** Square roots are usually used for count data, and this is not the case for this dataset. 
 
 Let's look at some summary statistics from these clusters
 
@@ -426,6 +575,7 @@ Summary stats by wave and cluster
 df%>%
   group_by(cluster, Wave_Num)%>%
   summarise(Count = n(),
+            .groups = "drop_last",
             Mean = strftime(as_hms(mean(Net_Time_s)), "%H:%M:%S"),
             Median = strftime(as_hms(median(Net_Time_s)), "%H:%M:%S"),
             Min = strftime(as_hms(min(Net_Time_s)), "%H:%M:%S"),
@@ -476,4 +626,94 @@ df%>%
             `75%` = strftime(as_hms(quantile(Net_Time_s)[4]), "%H:%M:%S"),
             `SD` = strftime(as_hms(sd(Net_Time_s)), "%H:%M:%S"))
 ```
+
+Looking to see what factors could be associated with walkers (i.e. cluster = 2)
+
+```{r}
+fit <- glm(
+  I(cluster == "2") ~ Category + Gender + Wave_Num,
+  family = binomial,
+  data = df
+)
+```
+
+```{r}
+summary(fit)
+```
+**** NOTE TO JEMMA: Think about that a little further
+
+# Looking at wave numbers
+
+Green wave (1) -> 50mins - 1h 10mins
+Brown wave (2) -> 1h 10mins - 1h 25mins
+Purple wave (3) -> 1h 25mins - 1h 40mins
+Pink wave (4) -> 1h 40mins - 2h
+Sky blue wave (5) -> 2h +
+
+```{r}
+wave_times <- list(
+  A = c(as_hms(00:50:00), as_hms(01:10:00)),
+  B = c(as_hms(01:10:00), as_hms(01:25:00)),
+  C = c(as_hms(01:25:00), as_hms(01:40:00)),
+  D = c(as_hms(01:40:00), as_hms(02:00:00)),
+  E = c(as_hms(02:00:00), NA)
+)
+```
+
+
+Dividing the number of results by 5 (to see what the threshold should theoreticially be)
+
+```{r}
+df%>%
+  summarise(`Wave 1` = strftime(as_hms(quantile(Net_Time_s, probs = c(0.2))), "%H:%M:%S"),
+            `Wave 1 count` = sum(Net_Time<= `Wave 1`, na.rm = TRUE),
+            `40%` = strftime(as_hms(quantile(Net_Time_s, probs = c(0.4))), "%H:%M:%S"),
+            `60%` = strftime(as_hms(quantile(Net_Time_s, probs = c(0.6))), "%H:%M:%S"),            
+        `80%` = strftime(as_hms(quantile(Net_Time_s, probs = c(0.8))), "%H:%M:%S"),
+        `100%` = strftime(as_hms(quantile(Net_Time_s, probs = c(0.1))), "%H:%M:%S"))
+                                                      
+                
+
+```
+
+
+```{r}
+qs <- quantile(df$Net_Time_s,
+               probs = seq(0, 1, 0.2),
+               na.rm = TRUE)
+
+df %>%
+  summarise(
+    `Wave 1` = strftime(as_hms(qs[1]), "%H:%M:%S"),
+    `Wave 1 count` = sum(Net_Time_s <= qs[1], na.rm = TRUE),
+    `Wave 2` = strftime(as_hms(qs[2]), "%H:%M:%S"),
+    `Wave 2 count` = sum(Net_Time_s <= qs[2] & Net_Time_s > qs[1], na.rm = TRUE),
+    `Wave 3` = strftime(as_hms(qs[3]), "%H:%M:%S"),
+    `Wave 3 count` = sum(Net_Time_s <= qs[3] & Net_Time_s > qs[2], na.rm = TRUE),
+    `Wave 4` = strftime(as_hms(qs[4]), "%H:%M:%S"),
+    `Wave 4 count` = sum(Net_Time_s <= qs[4] & Net_Time_s > qs[3], na.rm = TRUE),
+    `Wave 5` = strftime(as_hms(qs[5]), "%H:%M:%S"),
+    `Wave 5 count` = sum(Net_Time_s <= qs[4] & Net_Time_s > qs[4], na.rm = TRUE),
+    `Wave 6` = strftime(as_hms(qs[6]), "%H:%M:%S"),
+    `Wave 6 count` = sum(Net_Time_s > qs[5], na.rm = TRUE),
+  )
+```
+
+Wave cut-offs are almost correct as to what was published. 
+
+so.... how many people overestimated or underestimated their skills?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
