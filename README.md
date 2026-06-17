@@ -13,10 +13,10 @@ Data was scraped from the [BlueChip timing website](https://bluechipresults.com.
 
 # Exploratory analysis
 
-![Finisher times](/output/dist_finish_time.png)
+<img src=/output/dist_finish_time.png width="300">
 
-![Finisher times](/output/bar_plot_count_gender_cat.png)
+<img src=/output/bar_plot_count_gender_cat.png width="300">
 
-![Finisher times](/output/times_based_on_wave.png)
+<img src=/output/times_based_on_wave.png width="300">
 
 
